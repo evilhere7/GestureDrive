@@ -26,6 +26,12 @@ def main():
         app.config.camera.device_index = args.camera
         app.camera_manager.device_index = args.camera
 
+    # Bring window to foreground on desktop
+    app.lift()
+    app.focus_force()
+    app.attributes('-topmost', True)
+    app.after(1000, lambda: app.attributes('-topmost', False))
+
     app.mainloop()
 
 if __name__ == "__main__":

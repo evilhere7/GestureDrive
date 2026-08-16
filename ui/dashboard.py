@@ -399,14 +399,7 @@ class DashboardApp(ctk.CTk):
             self.captured_frame_count += 1
             h, w, _ = frame.shape
 
-            # Save first frame to disk to prove OpenCV read
-            if not self.saved_debug_frame:
-                try:
-                    cv2.imwrite("debug_camera_frame.jpg", frame)
-                    self.saved_debug_frame = True
-                    logger.info(f"[CAMERA] Saved debug camera frame to 'debug_camera_frame.jpg' ({w}x{h})")
-                except Exception as e:
-                    logger.error(f"Failed to save debug frame: {e}")
+            # Process live webcam frame
 
             # Draw explicit diagnostic banner onto frame
             cv2.rectangle(frame, (10, h - 45), (w - 10, h - 10), (0, 0, 0), -1)
