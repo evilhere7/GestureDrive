@@ -66,7 +66,9 @@ class AppConfig:
 
     def save(self, filepath: str) -> None:
         """Save settings to a JSON file."""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        dirname = os.path.dirname(filepath)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         with open(filepath, 'w') as f:
             json.dump(asdict(self), f, indent=2)
 

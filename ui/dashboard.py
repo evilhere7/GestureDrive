@@ -128,7 +128,7 @@ class DashboardApp(ctk.CTk):
             text="🟢 GAME INPUT: Click your browser game window (Racing Limits on CrazyGames) to grant keyboard focus!",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#38bdf8"
-        ).pack(py=6, px=10)
+        ).pack(pady=6, padx=10)
 
         # Main Layout: Camera on Left, Controls & Metrics on Right
         content_frame = ctk.CTkFrame(self, fg_color="transparent")
