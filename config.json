@@ -25,7 +25,7 @@
     "horn_enabled": false
   },
   "controls": {
-    "input_mode": "KEYBOARD",
+    "input_mode": "SIMULATION",
     "keyboard_mappings": {
       "steer_left": "left",
       "steer_right": "right",
