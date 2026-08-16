@@ -6,6 +6,60 @@ from app.logger import get_logger
 logger = get_logger("ProfileManager")
 
 DEFAULT_PROFILES = {
+    "racing_limits": {
+        "name": "Racing Limits (CrazyGames Browser)",
+        "input_mode": "KEYBOARD",
+        "keyboard_mappings": {
+            "steer_left": "left",
+            "steer_right": "right",
+            "accelerate": "up",
+            "brake": "down",
+            "nitro": "f",
+            "horn": "e",
+            "camera": "c",
+            "gear_up": "w",
+            "gear_down": "d"
+        },
+        "steering": {
+            "sensitivity": 1.0,
+            "smoothing": 0.6,
+            "dead_zone": 0.10,
+            "max_angle": 45.0,
+            "curve": "LINEAR"
+        },
+        "gestures": {
+            "enabled": True,
+            "auto_accel": True,
+            "nitro_cooldown": 1.0,
+            "horn_enabled": False
+        }
+    },
+    "browser_racing": {
+        "name": "Generic Browser Racing Game",
+        "input_mode": "KEYBOARD",
+        "keyboard_mappings": {
+            "steer_left": "left",
+            "steer_right": "right",
+            "accelerate": "up",
+            "brake": "down",
+            "nitro": "f",
+            "horn": "e",
+            "camera": "c"
+        },
+        "steering": {
+            "sensitivity": 1.0,
+            "smoothing": 0.6,
+            "dead_zone": 0.08,
+            "max_angle": 45.0,
+            "curve": "LINEAR"
+        },
+        "gestures": {
+            "enabled": True,
+            "auto_accel": True,
+            "nitro_cooldown": 1.0,
+            "horn_enabled": False
+        }
+    },
     "default": {
         "name": "Default (Keyboard W/A/S/D)",
         "input_mode": "KEYBOARD",

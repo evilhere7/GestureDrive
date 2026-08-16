@@ -1,0 +1,26 @@
+{
+  "name": "Generic Browser Racing Game",
+  "input_mode": "KEYBOARD",
+  "keyboard_mappings": {
+    "steer_left": "left",
+    "steer_right": "right",
+    "accelerate": "up",
+    "brake": "down",
+    "nitro": "f",
+    "horn": "e",
+    "camera": "c"
+  },
+  "steering": {
+    "sensitivity": 1.0,
+    "smoothing": 0.6,
+    "dead_zone": 0.08,
+    "max_angle": 45.0,
+    "curve": "LINEAR"
+  },
+  "gestures": {
+    "enabled": true,
+    "auto_accel": true,
+    "nitro_cooldown": 1.0,
+    "horn_enabled": false
+  }
+}

@@ -7,42 +7,59 @@ from app.logger import get_logger
 
 logger = get_logger("GestureDetector")
 
+import math
+import time
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+from app.config import GestureConfig
+from app.hand_tracker import HandInfo
+from app.logger import get_logger
+
+logger = get_logger("GestureDetector")
+
 @dataclass
 class GestureState:
     is_fist: bool = False
     is_thumbs_up: bool = False
     is_open_palm: bool = False
     is_nitro: bool = False
+    is_horn: bool = False
     detected_gesture_name: str = "STEERING"
 
 class GestureDetector:
-    """Classifies hand gestures (Fist, Thumbs Up, Open Palm, Nitro) from landmarks."""
+    """Classifies hand gestures (Fist, Thumbs Up, Open Palm, Nitro, Horn) from landmarks."""
 
     def __init__(self, config: GestureConfig):
         self.config = config
+        self.fist_frame_count = 0
+        self.last_nitro_time = 0.0
 
     def update_config(self, config: GestureConfig):
         self.config = config
 
     def detect(self, hands: List[HandInfo], baseline_hand_distance: float = 0.4) -> GestureState:
         if not self.config.enabled or not hands:
+            self.fist_frame_count = 0
             return GestureState()
 
-        is_fist = False
-        is_thumbs_up = False
-        is_open_palm = False
-        is_nitro = False
+        raw_fist = False
+        raw_thumbs_up = False
+        raw_open_palm = False
+        raw_nitro = False
 
         # Inspect gestures for each hand
         for hand in hands:
             if self._check_fist(hand):
-                is_fist = True
-            elif self._check_thumbs_up(hand):
-                is_thumbs_up = True
-            elif self._check_open_palm(hand):
-                is_open_palm = True
+                raw_fist = True
+            if self._check_thumbs_up(hand):
+                raw_thumbs_up = True
+            if self._check_open_palm(hand):
+                raw_open_palm = True
 
-        # Check Nitro (2-hand separation distance > baseline * threshold)
+        # Check Nitro via Thumbs Up OR two-hand separation
+        if raw_thumbs_up:
+            raw_nitro = True
+
         if len(hands) >= 2:
             h1, h2 = hands[0], hands[1]
             dist = math.hypot(
@@ -50,23 +67,45 @@ class GestureDetector:
                 h1.center_norm[1] - h2.center_norm[1]
             )
             if dist > (baseline_hand_distance * self.config.nitro_threshold):
-                is_nitro = True
+                raw_nitro = True
+
+        # Debounce Brake (require consecutive fist frames to prevent accidental braking)
+        if raw_fist:
+            self.fist_frame_count += 1
+        else:
+            self.fist_frame_count = 0
+
+        debounced_fist = (self.fist_frame_count >= getattr(self.config, 'brake_debounce_frames', 2))
+
+        # Cooldown for Nitro (momentary activation)
+        now = time.time()
+        cooldown = getattr(self.config, 'nitro_cooldown', 1.0)
+        is_nitro = False
+        if raw_nitro and (now - self.last_nitro_time >= cooldown):
+            is_nitro = True
+            self.last_nitro_time = now
+
+        # Horn (only if enabled in config)
+        is_horn = raw_open_palm and getattr(self.config, 'horn_enabled', False)
 
         gesture_name = "NEUTRAL"
         if is_nitro:
-            gesture_name = "NITRO"
-        elif is_fist:
+            gesture_name = "NITRO (F)"
+        elif debounced_fist:
             gesture_name = "BRAKE (FIST)"
-        elif is_thumbs_up:
-            gesture_name = "ACCEL (THUMBS UP)"
-        elif is_open_palm:
+        elif raw_thumbs_up:
+            gesture_name = "ACCEL / NITRO"
+        elif is_horn:
+            gesture_name = "HORN (PALM)"
+        elif raw_open_palm:
             gesture_name = "STEERING"
 
         return GestureState(
-            is_fist=is_fist,
-            is_thumbs_up=is_thumbs_up,
-            is_open_palm=is_open_palm,
+            is_fist=debounced_fist,
+            is_thumbs_up=raw_thumbs_up,
+            is_open_palm=raw_open_palm,
             is_nitro=is_nitro,
+            is_horn=is_horn,
             detected_gesture_name=gesture_name
         )
 
@@ -89,7 +128,6 @@ class GestureDetector:
     def _check_thumbs_up(self, hand: HandInfo) -> bool:
         """Return True if thumb points upwards and other fingers are folded."""
         thumb_tip = hand.landmarks_norm[4]
-        thumb_ip = hand.landmarks_norm[3]
         thumb_mcp = hand.landmarks_norm[2]
         wrist = hand.landmarks_norm[0]
 

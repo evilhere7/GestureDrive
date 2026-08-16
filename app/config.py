@@ -24,20 +24,27 @@ class SteeringConfig:
 class GestureConfig:
     enabled: bool = True
     fist_threshold: float = 0.35      # Brake threshold
-    thumbs_up_threshold: float = 0.45 # Accel threshold
+    thumbs_up_threshold: float = 0.45 # Accel/Nitro threshold
     nitro_threshold: float = 1.4      # Hand separation multiplier vs baseline
-    auto_accel: bool = False          # Always accelerate when active
+    auto_accel: bool = True           # Default Auto Accelerate ON for Racing Limits
+    nitro_cooldown: float = 1.0       # Cooldown in seconds for momentary nitro trigger
+    brake_debounce_frames: int = 2    # Require consecutive frames before brake triggers
+    horn_enabled: bool = False        # Disabled by default
 
 @dataclass
 class ControlConfig:
     input_mode: str = "KEYBOARD"      # "KEYBOARD", "GAMEPAD", "SIMULATION"
     keyboard_mappings: Dict[str, str] = field(default_factory=lambda: {
-        "steer_left": "a",
-        "steer_right": "d",
-        "accelerate": "w",
-        "brake": "s",
-        "handbrake": "space",
-        "nitro": "shift"
+        "steer_left": "left",
+        "steer_right": "right",
+        "accelerate": "up",
+        "brake": "down",
+        "nitro": "f",
+        "horn": "e",
+        "camera": "c",
+        "gear_up": "w",
+        "gear_down": "d",
+        "handbrake": "space"
     })
     gamepad_mappings: Dict[str, str] = field(default_factory=lambda: {
         "steering_axis": "LX",
@@ -53,7 +60,7 @@ class AppConfig:
     steering: SteeringConfig = field(default_factory=SteeringConfig)
     gestures: GestureConfig = field(default_factory=GestureConfig)
     controls: ControlConfig = field(default_factory=ControlConfig)
-    active_profile: str = "default"
+    active_profile: str = "racing_limits"
     show_debug_panel: bool = False
     show_landmarks: bool = True
 
@@ -78,7 +85,7 @@ class AppConfig:
                 steering=SteeringConfig(**data.get("steering", {})),
                 gestures=GestureConfig(**data.get("gestures", {})),
                 controls=ControlConfig(**data.get("controls", {})),
-                active_profile=data.get("active_profile", "default"),
+                active_profile=data.get("active_profile", "racing_limits"),
                 show_debug_panel=data.get("show_debug_panel", False),
                 show_landmarks=data.get("show_landmarks", True)
             )

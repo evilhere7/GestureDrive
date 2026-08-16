@@ -44,6 +44,22 @@ class KeyboardAdapter(BaseInputAdapter):
             return SPECIAL_KEYS[normalized]
         return normalized
 
+    def get_active_keys(self) -> Set[str]:
+        """Return a set of currently pressed key names."""
+        return set(self.active_keys)
+
+    def tap_key(self, key_name: str) -> None:
+        """Single momentary press and release of a key."""
+        key_obj = self._get_key_obj(key_name)
+        try:
+            self.controller.press(key_obj)
+            import time
+            time.sleep(0.05)
+            self.controller.release(key_obj)
+            logger.info(f"Tapped key '{key_name}'")
+        except Exception as e:
+            logger.error(f"Failed to tap key '{key_name}': {e}")
+
     def update(self, state: ControlState) -> None:
         if not state.tracking_valid:
             self.release_all()
@@ -52,21 +68,21 @@ class KeyboardAdapter(BaseInputAdapter):
         desired_keys: Set[str] = set()
 
         if state.steering < -self.steering_threshold:
-            desired_keys.add(self.mappings.get("steer_left", "a"))
+            desired_keys.add(self.mappings.get("steer_left", "left"))
         elif state.steering > self.steering_threshold:
-            desired_keys.add(self.mappings.get("steer_right", "d"))
+            desired_keys.add(self.mappings.get("steer_right", "right"))
 
         if state.throttle > self.accel_threshold:
-            desired_keys.add(self.mappings.get("accelerate", "w"))
+            desired_keys.add(self.mappings.get("accelerate", "up"))
 
         if state.brake > self.brake_threshold:
-            desired_keys.add(self.mappings.get("brake", "s"))
+            desired_keys.add(self.mappings.get("brake", "down"))
 
         if state.handbrake:
             desired_keys.add(self.mappings.get("handbrake", "space"))
 
         if state.nitro:
-            desired_keys.add(self.mappings.get("nitro", "shift"))
+            desired_keys.add(self.mappings.get("nitro", "f"))
 
         # Keys to press
         to_press = desired_keys - self.active_keys
