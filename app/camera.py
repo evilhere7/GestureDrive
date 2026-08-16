@@ -1,13 +1,14 @@
 import cv2
 import threading
 import time
+import sys
 from typing import Optional, Tuple, List
 from app.logger import get_logger
 
 logger = get_logger("CameraManager")
 
 class CameraManager:
-    """Threaded OpenCV camera manager for high FPS non-blocking capture."""
+    """Threaded OpenCV camera manager with multi-backend negotiation and diagnostic logging."""
 
     def __init__(self, device_index: int = 0, width: int = 640, height: int = 480, fps: int = 30, mirror: bool = True):
         self.device_index = device_index
@@ -25,39 +26,89 @@ class CameraManager:
         self.actual_fps = 0.0
         self._frame_count = 0
         self._fps_timer = time.time()
+        self.active_backend_name = "UNKNOWN"
+        self.last_error_message = ""
 
     def start(self) -> bool:
-        """Start the camera capture thread."""
+        """Start the camera capture thread with backend and index auto-discovery."""
         if self.is_running:
             return True
 
-        self.cap = cv2.VideoCapture(self.device_index, cv2.CAP_DSHOW if cv2.os.name == 'nt' else cv2.CAP_ANY)
-        if not self.cap or not self.cap.isOpened():
-            logger.warning(f"Could not open camera device {self.device_index}. Retrying with default driver...")
-            self.cap = cv2.VideoCapture(self.device_index)
+        logger.info(f"[CAMERA] Initializing Camera Index {self.device_index} (Requested: {self.width}x{self.height} @ {self.target_fps}fps)...")
 
-        if not self.cap or not self.cap.isOpened():
-            logger.error(f"Failed to open camera device {self.device_index}")
+        backends = []
+        if sys.platform == "win32":
+            backends = [
+                ("DSHOW", cv2.CAP_DSHOW),
+                ("MSMF", cv2.CAP_MSMF),
+                ("DEFAULT", cv2.CAP_ANY)
+            ]
+        else:
+            backends = [("DEFAULT", cv2.CAP_ANY)]
+
+        # Try specified device_index first, then probe other indices 0..3 if it fails
+        indices_to_try = [self.device_index] + [i for i in [0, 1, 2, 3] if i != self.device_index]
+
+        opened_cap = None
+        used_backend = "UNKNOWN"
+        working_index = self.device_index
+
+        for idx in indices_to_try:
+            for backend_name, backend_id in backends:
+                logger.info(f"[CAMERA] Probing Camera Index {idx} with Backend {backend_name}...")
+                try:
+                    cap = cv2.VideoCapture(idx, backend_id)
+                    if cap and cap.isOpened():
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                        cap.set(cv2.CAP_PROP_FPS, self.target_fps)
+
+                        # Read initial test frames to verify frame output
+                        ret, test_frame = cap.read()
+                        if ret and test_frame is not None and test_frame.size > 0:
+                            h, w, _ = test_frame.shape
+                            logger.info(f"[CAMERA] Success! Index {idx} Backend {backend_name} returned valid frame: {w}x{h}")
+                            opened_cap = cap
+                            used_backend = backend_name
+                            working_index = idx
+                            break
+                        else:
+                            logger.warning(f"[CAMERA] Index {idx} Backend {backend_name} opened but ret=False for test frame.")
+                            cap.release()
+                except Exception as e:
+                    logger.warning(f"[CAMERA] Exception on Index {idx} Backend {backend_name}: {e}")
+
+            if opened_cap is not None:
+                break
+
+        if opened_cap is None:
+            self.last_error_message = "All camera indices (0-3) and backends failed to produce video frames."
+            logger.error(f"[CAMERA] ERROR: {self.last_error_message}")
             return False
 
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FPS, self.target_fps)
-
+        self.device_index = working_index
+        self.cap = opened_cap
+        self.active_backend_name = used_backend
         self.is_running = True
         self.thread = threading.Thread(target=self._capture_loop, daemon=True)
         self.thread.start()
-        logger.info(f"Camera started on device {self.device_index} ({self.width}x{self.height} @ {self.target_fps}fps)")
+        logger.info(f"[CAMERA] Camera Thread Started successfully using Index {working_index} ({used_backend}).")
         return True
 
     def _capture_loop(self):
         """Background thread capture loop."""
+        consecutive_failures = 0
+
         while self.is_running and self.cap and self.cap.isOpened():
             ret, frame = self.cap.read()
-            if not ret or frame is None:
-                time.sleep(0.01)
+            if not ret or frame is None or frame.size == 0:
+                consecutive_failures += 1
+                if consecutive_failures % 30 == 0:
+                    logger.warning(f"[CAMERA] Consecutive frame capture failures ({consecutive_failures})...")
+                time.sleep(0.02)
                 continue
 
+            consecutive_failures = 0
             if self.mirror:
                 frame = cv2.flip(frame, 1)
 
@@ -86,7 +137,7 @@ class CameraManager:
             return self.actual_fps
 
     def stop(self):
-        """Stop the camera capture thread."""
+        """Stop the camera capture thread and release hardware resources."""
         self.is_running = False
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)
@@ -94,17 +145,23 @@ class CameraManager:
             self.cap.release()
         self.cap = None
         self.latest_frame = None
-        logger.info("Camera stopped.")
+        logger.info("[CAMERA] Camera stopped and resources released.")
+
+    def restart(self) -> bool:
+        """Safely stop and reinitialize the camera."""
+        self.stop()
+        time.sleep(0.3)
+        return self.start()
 
     @staticmethod
     def list_available_cameras(max_tested: int = 5) -> List[int]:
         """Test camera indices and return available camera IDs."""
         available = []
         for i in range(max_tested):
-            temp_cap = cv2.VideoCapture(i, cv2.CAP_DSHOW if cv2.os.name == 'nt' else cv2.CAP_ANY)
+            temp_cap = cv2.VideoCapture(i, cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY)
             if temp_cap and temp_cap.isOpened():
-                ret, _ = temp_cap.read()
-                if ret:
+                ret, frame = temp_cap.read()
+                if ret and frame is not None:
                     available.append(i)
                 temp_cap.release()
         return available if available else [0]

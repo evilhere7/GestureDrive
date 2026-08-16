@@ -1,6 +1,7 @@
 import cv2
 import math
 import time
+import os
 import tkinter as tk
 import customtkinter as ctk
 from PIL import Image, ImageTk
@@ -72,10 +73,19 @@ class DashboardApp(ctk.CTk):
         self.latest_steering_result: Optional[SteeringResult] = None
         self.latest_gesture_state: Optional[GestureState] = None
 
+        # Telemetry & Diagnostic Frame Counters
+        self.captured_frame_count = 0
+        self.displayed_frame_count = 0
+        self.saved_debug_frame = False
+        self.static_test_mode = False
+
+        # Persistent Image Reference to prevent Tkinter garbage collection
+        self._video_photo: Optional[ImageTk.PhotoImage] = None
+
         # Build UI Layout
         self._build_ui()
 
-        # Global hotkey for emergency stop
+        # Bind global hotkey for emergency stop
         self.bind("<Escape>", lambda e: self._emergency_stop())
 
         # Bind closing protocol for safety
@@ -101,7 +111,6 @@ class DashboardApp(ctk.CTk):
             self.active_adapter = self.keyboard_adapter
             logger.info("Activated Keyboard Adapter.")
         else:
-            # SIMULATION mode
             self.active_adapter = None
             logger.info("Activated Simulation Mode (No external inputs).")
 
@@ -134,11 +143,17 @@ class DashboardApp(ctk.CTk):
         content_frame = ctk.CTkFrame(self, fg_color="transparent")
         content_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Left Column: Camera Preview
+        # Left Column: Camera Preview (Using high-performance native tk.Label to avoid CustomTkinter Canvas redraw overhead)
         left_col = ctk.CTkFrame(content_frame, fg_color="#141414")
         left_col.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        self.video_label = ctk.CTkLabel(left_col, text="Starting Camera Feed...", fg_color="#000000")
+        self.video_label = tk.Label(
+            left_col,
+            text="Initializing Camera Preview Feed...",
+            bg="#000000",
+            fg="#00ff66",
+            font=("Helvetica", 14, "bold")
+        )
         self.video_label.pack(fill="both", expand=True, padx=5, pady=5)
 
         # Right Column: Dashboard Gauges & Controls
@@ -204,7 +219,7 @@ class DashboardApp(ctk.CTk):
             command=self._on_input_mode_change
         )
         self.combo_input_mode.set(self.config.controls.input_mode)
-        self.combo_input_mode.pack(fill="x", padx=15, pady=(0, 8))
+        self.combo_input_mode.pack(fill="x", padx=15, pady=(0, 6))
 
         # Game Profile Dropdown
         ctk.CTkLabel(right_col, text="Active Game Profile:", font=ctk.CTkFont(size=11)).pack(anchor="w", padx=15)
@@ -214,7 +229,7 @@ class DashboardApp(ctk.CTk):
             command=self._on_profile_change
         )
         self.combo_profiles.set(self.config.active_profile)
-        self.combo_profiles.pack(fill="x", padx=15, pady=(0, 10))
+        self.combo_profiles.pack(fill="x", padx=15, pady=(0, 8))
 
         # Action Buttons
         btn_grid = ctk.CTkFrame(right_col, fg_color="transparent")
@@ -222,8 +237,8 @@ class DashboardApp(ctk.CTk):
 
         ctk.CTkButton(btn_grid, text="Calibrate", command=self._open_calibration_dialog).grid(row=0, column=0, padx=2, pady=2, sticky="ew")
         ctk.CTkButton(btn_grid, text="Settings", command=self._open_settings_dialog).grid(row=0, column=1, padx=2, pady=2, sticky="ew")
-        ctk.CTkButton(btn_grid, text="Camera (C)", command=self._change_camera_key).grid(row=1, column=0, padx=2, pady=2, sticky="ew")
-        ctk.CTkButton(btn_grid, text="Telemetry", command=self._open_debug_panel).grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="Test Display", command=self._toggle_static_test_mode).grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="Restart Cam", command=self._restart_camera_feed).grid(row=1, column=1, padx=2, pady=2, sticky="ew")
 
         btn_grid.grid_columnconfigure(0, weight=1)
         btn_grid.grid_columnconfigure(1, weight=1)
@@ -238,7 +253,7 @@ class DashboardApp(ctk.CTk):
             hover_color="#660000",
             command=self._emergency_stop
         )
-        self.btn_emergency_stop.pack(fill="x", padx=15, pady=(10, 5))
+        self.btn_emergency_stop.pack(fill="x", padx=15, pady=(8, 4))
 
         # START / STOP Driving Toggle Button
         self.btn_drive_toggle = ctk.CTkButton(
@@ -250,7 +265,7 @@ class DashboardApp(ctk.CTk):
             hover_color="#1E7A52",
             command=self._toggle_driving_mode
         )
-        self.btn_drive_toggle.pack(fill="x", padx=15, pady=(5, 15), side="bottom")
+        self.btn_drive_toggle.pack(fill="x", padx=15, pady=(4, 15), side="bottom")
 
     def _add_stat_row(self, parent, label: str, default_val: str) -> ctk.CTkLabel:
         frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -316,15 +331,25 @@ class DashboardApp(ctk.CTk):
         else:
             self.debug_panel_window.focus()
 
+    def _toggle_static_test_mode(self):
+        self.static_test_mode = not self.static_test_mode
+        logger.info(f"[UI] Static Test Mode Toggled: {self.static_test_mode}")
+
+    def _restart_camera_feed(self):
+        logger.info("[UI] User requested camera restart...")
+        success = self.camera_manager.restart()
+        if success:
+            logger.info("[UI] Camera restart successful.")
+        else:
+            logger.error("[UI] Camera restart failed.")
+
     def _change_camera_key(self):
-        """Send camera switch key 'c'."""
         if self.keyboard_adapter:
             cam_key = self.config.controls.keyboard_mappings.get("camera", "c")
             self.keyboard_adapter.tap_key(cam_key)
             logger.info(f"Changed Racing Limits camera via key '{cam_key}'")
 
     def _emergency_stop(self):
-        """Immediate Emergency Stop: Release all virtual inputs and pause driving."""
         logger.warning("EMERGENCY STOP ACTIVATED!")
         self.is_driving_active = False
         self.is_counting_down = False
@@ -339,10 +364,8 @@ class DashboardApp(ctk.CTk):
 
     def _toggle_driving_mode(self):
         if self.is_driving_active or self.is_counting_down:
-            # STOP
             self._emergency_stop()
         else:
-            # START COUNTDOWN
             self.is_counting_down = True
             self.countdown_remaining = 3
             self.countdown_start_time = time.time()
@@ -353,7 +376,16 @@ class DashboardApp(ctk.CTk):
         """Main camera acquisition, hand tracking, steering calculation & GUI loop."""
         ret, frame = self.camera_manager.read()
 
-        # Handle Countdown Timer logic
+        # Handle static test mode for isolation verification
+        if self.static_test_mode:
+            test_img = Image.new("RGB", (640, 480), "#003366")
+            self._video_photo = ImageTk.PhotoImage(image=test_img)
+            self.video_label.configure(image=self._video_photo, text="")
+            self.video_label.image = self._video_photo
+            self.after(30, self._main_loop)
+            return
+
+        # Countdown timer logic
         if self.is_counting_down:
             elapsed = time.time() - self.countdown_start_time
             self.countdown_remaining = 3 - int(elapsed)
@@ -363,17 +395,43 @@ class DashboardApp(ctk.CTk):
                 self.btn_drive_toggle.configure(text="STOP DRIVING MODE", fg_color="#A52F2F", hover_color="#7A1E1E")
                 self.status_pill.configure(text="● DRIVING ACTIVE", text_color="#00ff66")
 
-        if ret and frame is not None:
-            # 1. Hand Tracking
-            detected_hands, frame = self.hand_tracker.process_frame(frame)
-            self.current_hands = detected_hands
-
-            # 2. Draw landmarks if enabled
-            if self.config.show_landmarks:
-                frame = self.hand_tracker.draw_landmarks(frame, detected_hands)
-
-            # 3. Steering Math & Gestures
+        if ret and frame is not None and frame.size > 0:
+            self.captured_frame_count += 1
             h, w, _ = frame.shape
+
+            # Save first frame to disk to prove OpenCV read
+            if not self.saved_debug_frame:
+                try:
+                    cv2.imwrite("debug_camera_frame.jpg", frame)
+                    self.saved_debug_frame = True
+                    logger.info(f"[CAMERA] Saved debug camera frame to 'debug_camera_frame.jpg' ({w}x{h})")
+                except Exception as e:
+                    logger.error(f"Failed to save debug frame: {e}")
+
+            # Draw explicit diagnostic banner onto frame
+            cv2.rectangle(frame, (10, h - 45), (w - 10, h - 10), (0, 0, 0), -1)
+            cv2.putText(
+                frame,
+                f"GESTUREDRIVE LIVE CAMERA | FRAME: {self.captured_frame_count} | {w}x{h}",
+                (20, h - 22),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (0, 255, 0),
+                2,
+                cv2.LINE_AA
+            )
+
+            # 1. Hand Tracking with Fault Tolerance
+            detected_hands = []
+            try:
+                detected_hands, frame = self.hand_tracker.process_frame(frame)
+                self.current_hands = detected_hands
+                if self.config.show_landmarks:
+                    frame = self.hand_tracker.draw_landmarks(frame, detected_hands)
+            except Exception as e:
+                logger.error(f"Hand tracking error on frame: {e}")
+
+            # 2. Steering Math & Gestures
             steering_res = self.steering_engine.calculate(
                 hands=detected_hands,
                 calibrated_angle=self.calibration_manager.data.neutral_angle_deg,
@@ -388,7 +446,7 @@ class DashboardApp(ctk.CTk):
             )
             self.latest_gesture_state = gesture_st
 
-            # 4. Control State & Fail-Safe Dispatch
+            # 3. Control State & Fail-Safe Dispatch
             tracking_valid = (steering_res is not None) and (len(detected_hands) > 0)
 
             if tracking_valid and steering_res:
@@ -409,7 +467,7 @@ class DashboardApp(ctk.CTk):
             else:
                 ctrl_state = self.controls_manager.release_all_controls()
 
-            # 5. Dispatch to Input Adapter if Driving Mode is active
+            # 4. Dispatch to Input Adapter if Driving Mode is active
             if self.is_driving_active and self.active_adapter:
                 self.active_adapter.update(ctrl_state)
 
@@ -418,17 +476,37 @@ class DashboardApp(ctk.CTk):
                 horn_key = self.config.controls.keyboard_mappings.get("horn", "e")
                 self.keyboard_adapter.tap_key(horn_key)
 
-            # 6. Render Virtual Steering Wheel Overlay onto Frame
+            # 5. Render Virtual Steering Wheel Overlay onto Frame
             frame = self._draw_virtual_wheel_overlay(frame, steering_res, gesture_st, ctrl_state)
 
-            # 7. Update Dashboard GUI Readouts
+            # 6. Update Dashboard GUI Readouts
             self._update_gui_telemetry(steering_res, gesture_st, ctrl_state)
 
-            # 8. Render Frame in Tkinter Canvas/Label
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame_rgb)
-            img_ctk = ctk.CTkImage(light_image=img, dark_image=img, size=(600, 450))
-            self.video_label.configure(image=img_ctk, text="")
+            # 7. Convert Frame BGR -> RGB -> PIL -> ImageTk.PhotoImage and render to native tk.Label
+            try:
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(frame_rgb)
+                
+                # High-performance Tkinter PhotoImage reference retention
+                self._video_photo = ImageTk.PhotoImage(image=pil_image)
+                self.video_label.configure(image=self._video_photo, text="")
+                self.video_label.image = self._video_photo
+                
+                self.displayed_frame_count += 1
+            except Exception as e:
+                logger.error(f"UI frame render error: {e}")
+
+            if self.captured_frame_count % 60 == 0:
+                logger.info(f"[VIDEO] Captured: {self.captured_frame_count} | Displayed: {self.displayed_frame_count} | Widget size: {self.video_label.winfo_width()}x{self.video_label.winfo_height()}")
+
+        else:
+            # Display Camera Error / Retry Placeholder
+            self.video_label.configure(
+                image=None,
+                text="📷 CAMERA ERROR — No video frame received\n\n1. Click 'Restart Cam' or 'Test Display' below\n2. Verify Windows Privacy & Security -> Camera Access is ON\n3. Ensure no other browser or app is locking the webcam",
+                font=("Helvetica", 13, "bold"),
+                fg="#ff4444"
+            )
 
         self.after(15, self._main_loop)
 
@@ -534,7 +612,6 @@ class DashboardApp(ctk.CTk):
             else:
                 badge.configure(fg_color="#222222", text_color="#666666")
 
-        # Update floating debug window if open
         if self.debug_panel_window and self.debug_panel_window.winfo_exists():
             self.debug_panel_window.update_telemetry(steering_res, gesture_st, ctrl_state)
 
