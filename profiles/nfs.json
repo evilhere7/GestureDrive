@@ -1,0 +1,19 @@
+{
+  "name": "Need for Speed (Keyboard)",
+  "input_mode": "KEYBOARD",
+  "keyboard_mappings": {
+    "steer_left": "left",
+    "steer_right": "right",
+    "accelerate": "up",
+    "brake": "down",
+    "handbrake": "space",
+    "nitro": "ctrl"
+  },
+  "steering": {
+    "sensitivity": 1.25,
+    "smoothing": 0.5,
+    "dead_zone": 0.05,
+    "max_angle": 40.0,
+    "curve": "QUADRATIC"
+  }
+}

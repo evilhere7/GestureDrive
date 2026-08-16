@@ -1,0 +1,19 @@
+{
+  "name": "Default (Keyboard W/A/S/D)",
+  "input_mode": "KEYBOARD",
+  "keyboard_mappings": {
+    "steer_left": "a",
+    "steer_right": "d",
+    "accelerate": "w",
+    "brake": "s",
+    "handbrake": "space",
+    "nitro": "shift"
+  },
+  "steering": {
+    "sensitivity": 1.0,
+    "smoothing": 0.6,
+    "dead_zone": 0.08,
+    "max_angle": 45.0,
+    "curve": "LINEAR"
+  }
+}

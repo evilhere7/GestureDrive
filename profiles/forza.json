@@ -1,0 +1,18 @@
+{
+  "name": "Forza (Virtual Gamepad XInput)",
+  "input_mode": "GAMEPAD",
+  "gamepad_mappings": {
+    "steering_axis": "LX",
+    "throttle_axis": "RT",
+    "brake_axis": "LT",
+    "handbrake_button": "A",
+    "nitro_button": "X"
+  },
+  "steering": {
+    "sensitivity": 1.0,
+    "smoothing": 0.65,
+    "dead_zone": 0.06,
+    "max_angle": 50.0,
+    "curve": "EXPONENTIAL"
+  }
+}
