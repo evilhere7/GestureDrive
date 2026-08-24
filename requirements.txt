@@ -1,9 +1,23 @@
+# GestureDrive Requirements
+# Python 3.11+ required
+
+# Core computer vision & tracking
 opencv-python>=4.8.0
 mediapipe>=0.10.0
 numpy>=1.24.0
+
+# UI framework
 customtkinter>=5.2.0
 Pillow>=9.5.0
+
+# Input simulation
 pynput>=1.7.6
-pyautogui>=0.9.54
+
+# Virtual gamepad (optional - requires ViGEmBus driver on Windows)
+# Install ViGEmBus: https://github.com/ViGEm/ViGEmBus/releases
 vgamepad>=0.1.0
+
+# Testing
 pytest>=7.4.0
+
+# NOTE: pyautogui removed (not used in core pipeline; pynput handles all input)
