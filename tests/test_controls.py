@@ -63,11 +63,15 @@ def test_failsafe_resets_then_recovers():
     assert state.steering == pytest.approx(0.3)
 
 def test_is_neutral_with_values():
-    cs = ControlState(steering=0.01, throttle=0.0, brake=0.0, handbrake=False, nitro=False)
-    # steering 0.01 > threshold 0.01 boundary
-    assert cs.is_neutral()  # abs(0.01) < 0.01 is False, so not neutral
+    # steering=0.0 is clearly neutral
+    cs = ControlState(steering=0.0, throttle=0.0, brake=0.0, handbrake=False, nitro=False)
+    assert cs.is_neutral()
+    # steering=0.05 exceeds the 0.01 threshold → NOT neutral
     cs2 = ControlState(steering=0.05, throttle=0.0, brake=0.0, handbrake=False, nitro=False)
     assert not cs2.is_neutral()
+    # throttle set → NOT neutral
+    cs3 = ControlState(steering=0.0, throttle=0.5, brake=0.0, handbrake=False, nitro=False)
+    assert not cs3.is_neutral()
 
 def test_control_horn_state():
     mgr = ControlsManager()

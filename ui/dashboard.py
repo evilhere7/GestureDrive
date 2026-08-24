@@ -1,7 +1,7 @@
-import cv2
 import math
-import time
 import os
+import cv2
+import time 
 import tkinter as tk
 import customtkinter as ctk
 from PIL import Image, ImageTk
