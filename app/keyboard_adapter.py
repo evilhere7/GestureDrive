@@ -6,7 +6,6 @@ from app.logger import get_logger
 
 logger = get_logger("KeyboardAdapter")
 
-# Mapping string key names to pynput Key objects or character strings
 SPECIAL_KEYS: Dict[str, Key] = {
     "space": Key.space,
     "shift": Key.shift,
@@ -18,18 +17,19 @@ SPECIAL_KEYS: Dict[str, Key] = {
     "down": Key.down,
     "left": Key.left,
     "right": Key.right,
+    "esc": Key.esc,
 }
 
 class KeyboardAdapter(BaseInputAdapter):
-    """Stateful Keyboard Input Adapter using pynput with key state diffing."""
+    """Stateful Keyboard Input Adapter using pynput with key state diffing and hysteresis."""
 
     def __init__(self, mappings: Dict[str, str]):
         self.mappings = mappings
         self.controller = Controller()
         self.active_keys: Set[str] = set()
         self.steering_threshold = 0.15
-        self.accel_threshold = 0.2
-        self.brake_threshold = 0.2
+        self.accel_threshold = 0.20
+        self.brake_threshold = 0.20
 
     def update_mappings(self, mappings: Dict[str, str]):
         self.release_all()
@@ -61,7 +61,7 @@ class KeyboardAdapter(BaseInputAdapter):
             logger.error(f"Failed to tap key '{key_name}': {e}")
 
     def update(self, state: ControlState) -> None:
-        if not state.tracking_valid:
+        if not state.tracking_valid and not state.grace_active:
             self.release_all()
             return
 
@@ -82,7 +82,10 @@ class KeyboardAdapter(BaseInputAdapter):
             desired_keys.add(self.mappings.get("handbrake", "space"))
 
         if state.nitro:
-            desired_keys.add(self.mappings.get("nitro", "f"))
+            desired_keys.add(self.mappings.get("nitro", "shift"))
+
+        if state.horn:
+            desired_keys.add(self.mappings.get("horn", "e"))
 
         # Keys to press
         to_press = desired_keys - self.active_keys
@@ -105,6 +108,7 @@ class KeyboardAdapter(BaseInputAdapter):
         self.active_keys = desired_keys
 
     def release_all(self) -> None:
+        """Release all currently held keys."""
         for key_str in list(self.active_keys):
             key_obj = self._get_key_obj(key_str)
             try:
