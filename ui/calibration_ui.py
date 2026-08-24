@@ -12,18 +12,18 @@ class CalibrationDialog(ctk.CTkToplevel):
         self.geometry("450x340")
         self.resizable(False, False)
         self.transient(parent)
-        self.grab_set()
+        self.grab_set() 
 
         self.calibration_manager = calibration_manager
         self.get_current_hands_func = get_current_hands_func
         self.countdown_val = 3
         self.timer_id = None
 
-        # Container
+        # Container  presnt in it  
         self.main_frame = ctk.CTkFrame(self)
         self.main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Title & Instructions
+        
         ctk.CTkLabel(self.main_frame, text="Calibrate Neutral Steering", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(10, 5))
         
         instructions = (
@@ -43,7 +43,7 @@ class CalibrationDialog(ctk.CTkToplevel):
         self.lbl_info = ctk.CTkLabel(self.status_frame, text=self._get_calibration_summary(), font=ctk.CTkFont(size=11), text_color="#aaaaaa")
         self.lbl_info.pack(pady=(0, 8))
 
-        # Button Frame
+        # Button Frame pack here 
         self.btn_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.btn_frame.pack(fill="x", pady=10)
 
