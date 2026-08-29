@@ -9,6 +9,8 @@ from app.gesture_detector import GestureState
 from app.controls import ControlState
 from app.logger import get_logger
 
+from datetime import datetime
+
 logger = get_logger("Recorder")
 
 @dataclass
@@ -32,16 +34,21 @@ class RecordedFrame:
 class ControlRecorder:
     """Records real-time telemetry, hand geometry, and control outputs to JSON session logs."""
 
+    MAX_FRAMES_IN_MEMORY = 50000
+
     def __init__(self):
         self.is_recording = False
         self.session_frames: List[RecordedFrame] = []
         self.start_time: float = 0.0
+        self.current_session_file: Optional[str] = None
 
-    def start_recording(self):
+    def start_recording(self, session_name: Optional[str] = None):
         self.session_frames.clear()
         self.start_time = time.time()
         self.is_recording = True
-        logger.info("Control session recording started.")
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.current_session_file = session_name or f"recordings/session_{timestamp_str}.json"
+        logger.info(f"Control session recording started -> {self.current_session_file}")
 
     def record_frame(
         self,
@@ -55,6 +62,10 @@ class ControlRecorder:
         if not self.is_recording:
             return
 
+        if len(self.session_frames) >= self.MAX_FRAMES_IN_MEMORY:
+            # Memory safeguard: remove oldest frame if max reached
+            self.session_frames.pop(0)
+
         lh_center = None
         rh_center = None
         if steering_res:
@@ -64,38 +75,55 @@ class ControlRecorder:
                 rh_center = list(steering_res.hand_right_center)
 
         frame_data = RecordedFrame(
-            timestamp=time.time() - self.start_time,
+            timestamp=round(time.time() - self.start_time, 4),
             hands_detected=len(hands),
             left_hand_center=lh_center,
             right_hand_center=rh_center,
-            steering_angle=steering_res.angle_degrees if steering_res else 0.0,
-            raw_steering=steering_res.raw_value if steering_res else 0.0,
-            smoothed_steering=steering_res.smoothed_value if steering_res else 0.0,
+            steering_angle=round(steering_res.angle_degrees, 2) if steering_res else 0.0,
+            raw_steering=round(steering_res.raw_value, 4) if steering_res else 0.0,
+            smoothed_steering=round(steering_res.smoothed_value, 4) if steering_res else 0.0,
             gesture_name=gesture_st.detected_gesture_name if gesture_st else "NONE",
-            throttle=ctrl_state.throttle,
-            brake=ctrl_state.brake,
+            throttle=round(ctrl_state.throttle, 3),
+            brake=round(ctrl_state.brake, 3),
             handbrake=ctrl_state.handbrake,
             nitro=ctrl_state.nitro,
             tracking_valid=ctrl_state.tracking_valid,
-            fps=fps,
+            fps=round(fps, 1),
             latency_ms=latencies if latencies else {}
         )
         self.session_frames.append(frame_data)
 
-    def stop_recording(self, filepath: str = "recordings/latest_session.json") -> bool:
-        if not self.is_recording:
+    def stop_recording(self, filepath: Optional[str] = None) -> bool:
+        if not self.is_recording and not self.session_frames:
             return False
 
         self.is_recording = False
-        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
+        target_path = filepath or self.current_session_file or f"recordings/session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        os.makedirs(os.path.dirname(target_path) or ".", exist_ok=True)
+
         try:
-            with open(filepath, "w") as f:
-                json.dump([asdict(fr) for fr in self.session_frames], f, indent=2)
-            logger.info(f"Saved {len(self.session_frames)} recorded frames to {filepath}")
+            serialized = [asdict(fr) for fr in self.session_frames]
+            with open(target_path, "w") as f:
+                json.dump(serialized, f, indent=2)
+            logger.info(f"Saved {len(self.session_frames)} recorded frames to {target_path}")
+
+            # Also mirror to latest_session.json
+            latest_path = os.path.join(os.path.dirname(target_path) or "recordings", "latest_session.json")
+            with open(latest_path, "w") as f:
+                json.dump(serialized, f, indent=2)
+
             return True
         except Exception as e:
-            logger.error(f"Failed to save recording to {filepath}: {e}")
+            logger.error(f"Failed to save recording to {target_path}: {e}")
             return False
+
+    def frame_count(self) -> int:
+        return len(self.session_frames)
+
+    def duration_seconds(self) -> float:
+        if not self.session_frames:
+            return 0.0
+        return self.session_frames[-1].timestamp
 
 
 class ControlReplayer:

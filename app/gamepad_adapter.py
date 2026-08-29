@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from app.input_adapter import BaseInputAdapter
 from app.controls import ControlState
 from app.logger import get_logger
@@ -6,27 +6,30 @@ from app.logger import get_logger
 logger = get_logger("GamepadAdapter")
 
 try:
-    import vgamepad as vg
+    import vgamepad as vg  # type: ignore
     VGAMEPAD_AVAILABLE = True
-except Exception:
-    VGAMEPAD_AVAILABLE = False
+except (ImportError, ModuleNotFoundError, Exception):
     vg = None
+    VGAMEPAD_AVAILABLE = False
 
 # Button name mapping for vgamepad
-BUTTON_MAP = {}
+BUTTON_MAP: Dict[str, Any] = {}
 if VGAMEPAD_AVAILABLE and vg is not None:
-    BUTTON_MAP = {
-        "A": vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
-        "B": vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
-        "X": vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
-        "Y": vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
-        "LB": vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
-        "RB": vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
-        "START": vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
-        "BACK": vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
-        "L_THUMB": vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
-        "R_THUMB": vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
-    }
+    try:
+        BUTTON_MAP = {
+            "A": vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
+            "B": vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
+            "X": vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
+            "Y": vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
+            "LB": vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+            "RB": vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+            "START": vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
+            "BACK": vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
+            "L_THUMB": vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
+            "R_THUMB": vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
+        }
+    except AttributeError:
+        BUTTON_MAP = {}
 
 class GamepadAdapter(BaseInputAdapter):
     """Virtual Xbox 360 Controller Adapter using vgamepad (ViGEmBus) with true analog outputs."""

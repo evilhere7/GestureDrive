@@ -61,6 +61,9 @@ class DashboardApp(ctk.CTk):
             grace_period_ms=self.config.controls.failsafe_grace_period_ms
         )
         self.recorder = ControlRecorder()
+        # Automatically record all camera sessions
+        self.recorder.start_recording()
+        logger.info("Automatic session telemetry recording active.")
 
         # Input adapters
         self.keyboard_adapter = KeyboardAdapter(self.config.controls.keyboard_mappings)
@@ -97,6 +100,7 @@ class DashboardApp(ctk.CTk):
         self.bind("<F5>", lambda e: self._open_calibration_dialog())
         self.bind("<F1>", lambda e: self._toggle_racing_mode())
         self.bind("<F2>", lambda e: self._open_debug_panel())
+        self.bind("<F9>", lambda e: self._toggle_recording())
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.camera_manager.start()
@@ -275,17 +279,18 @@ class DashboardApp(ctk.CTk):
         btn_grid = ctk.CTkFrame(scroll, fg_color="transparent")
         btn_grid.pack(fill="x", padx=6, pady=(8, 4))
 
-        btns = [
-            ("F5 Calibrate", self._open_calibration_dialog),
-            ("Settings", self._open_settings_dialog),
-            ("F1 Racing Mode", self._toggle_racing_mode),
-            ("F2 Debug Panel", self._open_debug_panel),
-            ("Restart Camera", self._restart_camera_feed),
-            ("Record Session", self._toggle_recording),
-        ]
-        for i, (label, cmd) in enumerate(btns):
-            r, c = divmod(i, 2)
-            ctk.CTkButton(btn_grid, text=label, command=cmd, height=28, font=ctk.CTkFont(size=11)).grid(row=r, column=c, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="F5 Calibrate", command=self._open_calibration_dialog, height=28, font=ctk.CTkFont(size=11)).grid(row=0, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="Settings", command=self._open_settings_dialog, height=28, font=ctk.CTkFont(size=11)).grid(row=0, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="F1 Racing Mode", command=self._toggle_racing_mode, height=28, font=ctk.CTkFont(size=11)).grid(row=1, column=0, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="F2 Debug Panel", command=self._open_debug_panel, height=28, font=ctk.CTkFont(size=11)).grid(row=1, column=1, padx=2, pady=2, sticky="ew")
+        ctk.CTkButton(btn_grid, text="Restart Camera", command=self._restart_camera_feed, height=28, font=ctk.CTkFont(size=11)).grid(row=2, column=0, padx=2, pady=2, sticky="ew")
+
+        self.btn_record = ctk.CTkButton(
+            btn_grid, text="🔴 REC (Auto)", command=self._toggle_recording,
+            height=28, fg_color="#770000", hover_color="#990000",
+            font=ctk.CTkFont(size=11, weight="bold")
+        )
+        self.btn_record.grid(row=2, column=1, padx=2, pady=2, sticky="ew")
         btn_grid.grid_columnconfigure((0, 1), weight=1)
 
         # Emergency stop
@@ -598,13 +603,19 @@ class DashboardApp(ctk.CTk):
         lat_color = (0, 255, 100) if lat_total < 30 else ((255, 165, 0) if lat_total < 60 else (255, 60, 60))
         cv2.rectangle(frame, (0, 0), (w, 55), (0, 0, 0), -1)
         status_text = "DRIVING" if self.is_driving_active else ("COUNTDOWN" if self.is_counting_down else "PAUSED")
+        rec_tag = " [● REC]" if self.recorder.is_recording else ""
         angle_str = f"{steering_res.angle_degrees:+.1f}°" if steering_res else "N/A"
         steer_str = f"{steering_res.smoothed_value:+.2f}" if steering_res else "0.00"
         gesture_str = gesture_st.detected_gesture_name if gesture_st else "NONE"
-        hud1 = f"Profile: {self.config.active_profile} | Status: {status_text} | FPS: {self._fps_display:.1f}"
+        hud1 = f"Profile: {self.config.active_profile} | Status: {status_text}{rec_tag} | FPS: {self._fps_display:.1f}"
         hud2 = f"Angle: {angle_str} | Steer: {steer_str} | Gesture: {gesture_str} | Latency: {lat_total:.0f}ms"
         cv2.putText(frame, hud1, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 215, 255), 1, cv2.LINE_AA)
         cv2.putText(frame, hud2, (10, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.5, lat_color, 1, cv2.LINE_AA)
+
+        if self.recorder.is_recording:
+            # Draw red recording dot at top right
+            cv2.circle(frame, (w - 20, 20), 6, (0, 0, 255), -1, cv2.LINE_AA)
+            cv2.putText(frame, "REC", (w - 55, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1, cv2.LINE_AA)
 
         return frame
 
@@ -740,17 +751,27 @@ class DashboardApp(ctk.CTk):
 
     def _restart_camera_feed(self):
         logger.info("Restarting camera...")
+        if self.recorder.is_recording:
+            self.recorder.stop_recording()
         success = self.camera_manager.restart()
-        if not success:
+        if success:
+            self.recorder.start_recording()
+            if hasattr(self, "btn_record"):
+                self.btn_record.configure(text="🔴 REC (Auto)", fg_color="#770000", hover_color="#990000")
+        else:
             logger.error("Camera restart failed.")
 
     def _toggle_recording(self):
         if not self.recorder.is_recording:
             self.recorder.start_recording()
-            logger.info("Session recording started.")
+            if hasattr(self, "btn_record"):
+                self.btn_record.configure(text="🔴 REC (Auto)", fg_color="#770000", hover_color="#990000")
+            logger.info("Telemetry recording started.")
         else:
-            filepath = f"recordings/session_{int(time.time())}.json"
-            self.recorder.stop_recording(filepath)
+            saved = self.recorder.stop_recording()
+            if hasattr(self, "btn_record"):
+                self.btn_record.configure(text="⏺ Start REC (F9)", fg_color="#333333", hover_color="#444444")
+            logger.info("Telemetry recording paused and saved.")
 
     def _emergency_stop(self):
         logger.warning("EMERGENCY STOP ACTIVATED!")
@@ -780,13 +801,13 @@ class DashboardApp(ctk.CTk):
             self.status_pill.configure(text="● GET READY", text_color="#ffaa00")
 
     def on_closing(self):
-        """Graceful shutdown: release all inputs, stop camera, save config."""
+        """Graceful shutdown: release all inputs, stop camera, save telemetry & config."""
         logger.info("Shutting down GestureDrive...")
         self.is_driving_active = False
 
-        # Stop recorder if running
-        if self.recorder.is_recording:
-            self.recorder.stop_recording("recordings/autosave.json")
+        # Automatically save recording session
+        if self.recorder.is_recording or self.recorder.frame_count() > 0:
+            self.recorder.stop_recording()
 
         self.controls_manager.release_all_controls()
         if self.active_adapter:

@@ -17,7 +17,7 @@
 [Calibration](#-calibration-system) •
 [Steering & Gestures](#-steering-model--gestures) •
 [Game Profiles](#-game-profiles) •
-[Telemetry & Testing](#-telemetry-recorder--testing)
+[Testing](#-testing--verification)
 
 </div>
 
@@ -73,8 +73,8 @@ Whether you're playing **Forza Horizon**, **BeamNG.drive**, **Assetto Corsa**, *
   - 30-frame statistical sampling with variance calculation, outlier pruning, and automated calibration rating (**EXCELLENT**, **GOOD**, **POOR**).
 - **🕹️ 10+ Curated Game Profiles**:
   - Pre-tuned profiles for Forza, Need for Speed, BeamNG.drive, Assetto Corsa, F1, Dirt Rally, Trackmania, CarX Drift, Euro Truck Simulator, American Truck Simulator, and browser games.
-- **📊 Real-time Telemetry & Session Recorder**:
-  - Record hand landmark sessions to JSON and replay them for tuning, debugging, and analytics.
+- **📊 Real-Time Diagnostic Telemetry**:
+  - Live latency breakdown across camera capture, neural tracking, gesture recognition, and steering computation.
 - **🛡️ Built-in Fail-Safe Engine**:
   - Automatic input release and centering upon tracking loss, camera drop, or timeout. Immediate emergency stop with <kbd>Esc</kbd>.
 
@@ -251,12 +251,8 @@ GestureDrive includes pre-configured profiles tailored for different racing styl
 
 ---
 
-## 📊 Telemetry Recorder & Testing
+## 🧪 Testing & Verification
 
-### Telemetry Recording & Playback
-GestureDrive includes an automated session recorder in `app/recorder.py`. You can record hand tracking coordinates, gestures, and steering angles into `.json` session logs to review, benchmark, or replay offline.
-
-### Automated Unit & Integration Tests
 The project features a comprehensive test suite (77 tests) covering geometry, filters, gestures, controls, calibration, profile persistence, and replay:
 
 ```bash
