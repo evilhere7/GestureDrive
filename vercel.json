@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd web && npm install && npm run build",
+  "outputDirectory": "web/dist",
+  "framework": "vite",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

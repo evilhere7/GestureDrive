@@ -33,3 +33,11 @@ $RECYCLE.BIN/
 # Session recordings and runtime logs
 recordings/
 *.log
+
+# Web frontend dependencies and build outputs
+node_modules/
+web/node_modules/
+dist/
+web/dist/
+.vite/
+web/.vite/
