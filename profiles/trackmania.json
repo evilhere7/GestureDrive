@@ -1,0 +1,27 @@
+{
+  "name": "Trackmania (Instant Digital / Arcade)",
+  "input_mode": "KEYBOARD",
+  "keyboard_mappings": {
+    "steer_left": "left",
+    "steer_right": "right",
+    "accelerate": "up",
+    "brake": "down",
+    "nitro": "shift",
+    "handbrake": "space"
+  },
+  "steering": {
+    "mode": "TWO_HAND",
+    "sensitivity": 1.4,
+    "smoothing": 0.2,
+    "filter_type": "NONE",
+    "dead_zone": 0.02,
+    "max_angle": 45.0,
+    "curve": "LINEAR",
+    "center_spring": false
+  },
+  "gestures": {
+    "enabled": true,
+    "auto_accel": true,
+    "brake_source": "FIST"
+  }
+}

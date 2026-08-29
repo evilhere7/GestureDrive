@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gesturedrive"
+version = "1.0.0"
+description = "Virtual AI Steering Wheel and Gesture Controller for Racing Games"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "GestureDrive Contributors" }
+]
+keywords = [
+    "mediapipe",
+    "opencv",
+    "gesture-control",
+    "racing-wheel",
+    "xinput",
+    "gamepad",
+    "virtual-wheel",
+    "computer-vision",
+    "gaming"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Games/Entertainment",
+    "Topic :: Scientific/Engineering :: Image Recognition"
+]
+dependencies = [
+    "opencv-python>=4.8.0",
+    "mediapipe>=0.10.0",
+    "numpy>=1.24.0",
+    "customtkinter>=5.2.0",
+    "Pillow>=9.5.0",
+    "pynput>=1.7.6",
+    "vgamepad>=0.1.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0"
+]
+
+[project.scripts]
+gesturedrive = "main:main"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -1,0 +1,21 @@
+{
+  "name": "CarX Drift Racing (Drift Control)",
+  "input_mode": "GAMEPAD",
+  "steering": {
+    "mode": "TWO_HAND",
+    "sensitivity": 1.1,
+    "smoothing": 0.4,
+    "filter_type": "EMA",
+    "dead_zone": 0.03,
+    "max_angle": 90.0,
+    "curve": "CUBIC",
+    "center_spring": true,
+    "center_spring_strength": 0.18
+  },
+  "gestures": {
+    "enabled": true,
+    "throttle_source": "THUMBS_UP",
+    "brake_source": "FIST",
+    "handbrake_gesture": "TWO_FISTS"
+  }
+}

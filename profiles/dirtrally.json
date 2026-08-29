@@ -1,0 +1,28 @@
+{
+  "name": "Dirt Rally (Quick Countersteer)",
+  "input_mode": "GAMEPAD",
+  "gamepad_mappings": {
+    "steering_axis": "LX",
+    "throttle_axis": "RT",
+    "brake_axis": "LT",
+    "handbrake_button": "A",
+    "nitro_button": "X"
+  },
+  "steering": {
+    "mode": "TWO_HAND",
+    "sensitivity": 1.25,
+    "smoothing": 0.35,
+    "filter_type": "EMA",
+    "dead_zone": 0.03,
+    "max_angle": 90.0,
+    "curve": "QUADRATIC",
+    "center_spring": true,
+    "center_spring_strength": 0.25
+  },
+  "gestures": {
+    "enabled": true,
+    "throttle_source": "THUMBS_UP",
+    "brake_source": "FIST",
+    "handbrake_gesture": "TWO_FISTS"
+  }
+}

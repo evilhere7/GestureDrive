@@ -1,0 +1,20 @@
+{
+  "name": "Euro Truck Simulator (Truck Wheel 180\u00b0)",
+  "input_mode": "GAMEPAD",
+  "steering": {
+    "mode": "TWO_HAND",
+    "sensitivity": 0.9,
+    "smoothing": 0.65,
+    "filter_type": "EMA_KALMAN",
+    "dead_zone": 0.05,
+    "max_angle": 180.0,
+    "curve": "LINEAR",
+    "center_spring": true,
+    "center_spring_strength": 0.3
+  },
+  "gestures": {
+    "enabled": true,
+    "throttle_source": "THUMBS_UP",
+    "brake_source": "FIST"
+  }
+}
